@@ -11,3 +11,4 @@
 /x64
 /cached_matrix.txt
 /WordleCpp/x64/Release
+*.bin

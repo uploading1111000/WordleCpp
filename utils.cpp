@@ -101,6 +101,14 @@ bool Wordlist::isless(const Word& lhs, const Word& rhs) const
 	return false;
 }
 
+Colours::Colours(int* initial)
+{
+	data = 0;
+	for (int i = 0; i < 5; i++){
+		set(i, initial[i]);
+	}
+}
+
 inline void Colours::set(int index, int colour)
 {
 	uint16_t mask = 3 << (index * 2);
@@ -115,5 +123,24 @@ int Colours::get(int index) const
 
 std::string Colours::asString() const
 {
-	return std::string();
+	std::string result;
+	for (int i = 0; i < 5; i++){
+		switch (get(i)){
+		case 0:
+			result += "b";
+			break;
+		case 1:
+			result += "y";
+			break;
+		case 2:
+			result += "g";
+			break;
+		}
+	}
+	return result;
+}
+
+int Colours::asInd() const
+{
+	return get(0) + 3 * get(1) + 9 * get(2) + 27 * get(3) + 81 * get(4);
 }

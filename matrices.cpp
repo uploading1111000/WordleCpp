@@ -6,7 +6,7 @@ ColourMatrix::ColourMatrix(Wordlist& words)
 {
 	wordlist = &words;
 
-	if (std::filesystem::exists("cached_matrix.txt")) {
+	if (std::filesystem::exists("cached_matrix.bin")) {
 		loadMatrix();
 	}
 	else {
@@ -34,7 +34,7 @@ void ColourMatrix::generateMatrix()
 }
 
 void ColourMatrix::saveMatrix() {
-    std::ofstream outfile("cached_matrix.txt", std::ios::binary);
+    std::ofstream outfile("cached_matrix.bin", std::ios::binary);
 
     size_t size = flatMatrix.size();
     outfile.write(reinterpret_cast<const char*>(&size), sizeof(size));
@@ -46,7 +46,7 @@ void ColourMatrix::saveMatrix() {
 
 
 void ColourMatrix::loadMatrix() {
-    std::ifstream infile("cached_matrix.txt", std::ios::binary);
+    std::ifstream infile("cached_matrix.bin", std::ios::binary);
 
     size_t size;
     infile.read(reinterpret_cast<char*>(&size), sizeof(size));
@@ -60,3 +60,91 @@ void ColourMatrix::loadMatrix() {
     infile.close();
 }
 
+IndexMatrix::IndexMatrix(ColourMatrix& colourMatrix)
+{
+	wordlist = colourMatrix.getWordlist();
+	if (std::filesystem::exists("index_matrix.bin")) {
+		loadMatrix();
+	}
+	else {
+		generateMatrix(colourMatrix);
+		saveMatrix();
+	}
+	
+}
+
+void IndexMatrix::generateMatrix(ColourMatrix& colourMatrix)
+{
+	matrix.reserve(wordlist->size());
+	for (int guess = 0; guess < wordlist->size(); guess++)
+	{
+		std::array<std::set<int>, 243> sets;
+		for (int answer = 0; answer < wordlist->size(); answer++)
+		{
+			Colours colours = colourMatrix.getColour(answer, guess);
+			sets[colours.asInd()].insert(answer);
+		}
+		matrix.push_back(sets);
+	}
+}
+
+void IndexMatrix::saveMatrix()
+{
+	std::ofstream outfile("index_matrix.bin", std::ios::binary);
+
+	// Save vector size
+	size_t vectorSize = matrix.size();
+	outfile.write(reinterpret_cast<const char*>(&vectorSize), sizeof(vectorSize));
+
+	std::vector<int> setElements;
+	
+
+	// For each vector element (which is an array of sets)
+	for (const auto& arrayOfSets : matrix) {
+		// For each set in the array
+		for (const auto& set : arrayOfSets) {
+			// Save set size
+			size_t setSize = set.size();
+			outfile.write(reinterpret_cast<const char*>(&setSize), sizeof(setSize));
+
+			setElements.clear();
+			setElements.insert(setElements.end(), set.begin(), set.end());
+
+			// Save all elements in the set
+			outfile.write(reinterpret_cast<const char*>(setElements.data()), setSize * sizeof(int));
+		}
+	}
+	outfile.close();
+}
+
+void IndexMatrix::loadMatrix()
+{
+	std::ifstream infile("index_matrix.bin", std::ios::binary);
+
+	// Read vector size
+	size_t vectorSize;
+	infile.read(reinterpret_cast<char*>(&vectorSize), sizeof(vectorSize));
+
+	// Resize the vector
+	matrix.resize(vectorSize);
+
+	std::vector<int> setElements;
+	setElements.reserve(100);
+
+	// For each vector element
+	for (auto& arrayOfSets : matrix) {
+		// For each set in the array (array size is fixed at 243)
+		for (auto& set : arrayOfSets) {
+			// Read set size
+			size_t setSize;
+			infile.read(reinterpret_cast<char*>(&setSize), sizeof(setSize));
+
+			setElements.resize(setSize);
+			infile.read(reinterpret_cast<char*>(setElements.data()), setSize * sizeof(int));
+
+			set.insert(setElements.begin(), setElements.end());
+		}
+	}
+
+	infile.close();
+}

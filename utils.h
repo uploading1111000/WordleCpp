@@ -27,10 +27,13 @@ private:
 	uint16_t data;
 public:
 	Colours() : data(0) {}
+	Colours(int* initial);
 	void set(int index, int colour);
 	int get(int index) const;
 	std::string asString() const;
 	uint16_t asInt() const { return data; }
+	int asInd() const;
+
 };
 
 Colours findColours(const Word &answer, const Word &guess);
