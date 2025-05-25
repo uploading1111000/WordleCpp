@@ -21,9 +21,9 @@ class IndexMatrix
 {
 public:
 	IndexMatrix(ColourMatrix& matrix);
-	std::set<int> getIndexSet(int guess, Colours colours) const {return matrix[guess][colours.asInd()];};
+	std::vector<int> getIndexSet(int guess, Colours colours) const {return matrix[guess][colours.asInd()];};
 protected:
-	std::vector<std::array<std::set<int>,243>> matrix;
+	std::vector<std::array<std::vector<int>,243>> matrix;
 	Wordlist* wordlist;
 	void generateMatrix(ColourMatrix& colourMatrix);
 	void saveMatrix();

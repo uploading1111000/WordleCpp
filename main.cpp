@@ -21,13 +21,13 @@ int main() {
 
 	int dataA[5] = { 0,2,0,1,0 };
 	Colours coloursA(dataA);
-	std::set<int> setA = indexMatrix.getIndexSet(words.getWordIndex(stringToWord("crate")), coloursA);
+	std::vector<int> setA = indexMatrix.getIndexSet(words.getWordIndex(stringToWord("crate")), coloursA);
 
 	int dataB[5] = { 0,0,2,0,0 };
 	Colours coloursB(dataB);
-	std::set<int> setB = indexMatrix.getIndexSet(words.getWordIndex(stringToWord("soily")), coloursB);
+	std::vector<int> setB = indexMatrix.getIndexSet(words.getWordIndex(stringToWord("soily")), coloursB);
 
-	std::set<int> setC;
+	std::vector<int> setC;
 	std::set_intersection(setA.begin(), setA.end(), setB.begin(), setB.end(), std::inserter(setC, setC.begin()));
 
 	for (int i : setC) {
