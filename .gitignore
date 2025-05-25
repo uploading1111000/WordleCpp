@@ -6,3 +6,8 @@
 *.filters
 *.user
 *.vcxproj
+/WordleCpp/x64/Debug
+/WordleCpp/x64/Release/WordleCpp.tlog
+/x64
+/cached_matrix.txt
+/WordleCpp/x64/Release
