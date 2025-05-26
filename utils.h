@@ -37,3 +37,5 @@ public:
 };
 
 Colours findColours(const Word &answer, const Word &guess);
+
+const std::array<int, 243> allColours();
