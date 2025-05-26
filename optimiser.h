@@ -11,6 +11,7 @@ public:
 	void maximiseEntropy2WordMultiThreaded();
 	float Entropy2Word(int first, int second);
 	int stringIndex(const std::string& word) { return wordlist.getWordIndex(stringToWord(word)); };
+	void test();
 private:
 	Wordlist wordlist;
 	ColourMatrix colourMatrix;

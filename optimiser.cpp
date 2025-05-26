@@ -91,19 +91,19 @@ void Optimiser::maximiseEntropy2WordMultiThreaded()
             }
 
             min mm = min({ i, -1, INFINITY });
-            std::array<std::vector<int>, 243>& firstGuessSet = indexMatrix.getIndexGuessSetRef(i);
+            std::array<std::vector<int>, 243>* firstGuessSet = indexMatrix.getIndexGuessSetRef(i);
             
             for (int j = i + 1; j < total_words; j++) {
                 float mi = 0.0f;
-                std::array<std::vector<int>, 243>& secondGuessSet = indexMatrix.getIndexGuessSetRef(j);
+                std::array<std::vector<int>, 243>* secondGuessSet = indexMatrix.getIndexGuessSetRef(j);
                 std::vector<int> workingSet;
                 
                 for (int index1 = 0; index1 < 243; index1++) {
                     for (int index2 = 0; index2 < 243; index2++) {
                         workingSet.clear();
                         std::set_intersection(
-                            firstGuessSet[index1].begin(), firstGuessSet[index1].end(),
-                            secondGuessSet[index2].begin(), secondGuessSet[index2].end(),
+                            firstGuessSet->operator[](index1).begin(), firstGuessSet->operator[](index1).end(),
+                            secondGuessSet->operator[](index2).begin(), secondGuessSet->operator[](index2).end(),
                             std::back_inserter(workingSet));
                         float p = frequencies.setProbability(workingSet);
                         if (p > 0.0f) {
@@ -165,15 +165,15 @@ void Optimiser::maximiseEntropy2WordFaster()
     min m = min({ -1, -1, INFINITY });
     for (int i = 0; i < wordlist.size(); i++) {
         min mm = min({ i, -1, INFINITY });
-        std::array<std::vector<int>, 243>& firstGuessSet = indexMatrix.getIndexGuessSetRef(i);
+        std::array<std::vector<int>, 243>* firstGuessSet = indexMatrix.getIndexGuessSetRef(i);
         for (int j = i + 1; j < wordlist.size(); j++) {
             float mi = 0.0f;
-            std::array<std::vector<int>, 243>& secondGuessSet = indexMatrix.getIndexGuessSetRef(j);
+            std::array<std::vector<int>, 243>* secondGuessSet = indexMatrix.getIndexGuessSetRef(j);
             std::vector<int> workingSet;
             for (int index1 = 0; index1 < 243; index1++) {
                 for (int index2 = 0; index2 < 243; index2++) {
                     workingSet.clear();
-                    std::set_intersection(firstGuessSet[index1].begin(), firstGuessSet[index1].end(), secondGuessSet[index2].begin(), secondGuessSet[index2].end(), std::back_inserter(workingSet));
+                    std::set_intersection(firstGuessSet->operator[](index1).begin(), firstGuessSet->operator[](index1).end(), secondGuessSet->operator[](index2).begin(), secondGuessSet->operator[](index2).end(), std::back_inserter(workingSet));
                     float p = frequencies.setProbability(workingSet);
                     if (p > 0.0f) {
                         mi += p * log2(p);
@@ -201,14 +201,14 @@ float Optimiser::Entropy2Word(int first, int second)
 {
     float mi = 0.0f;
     std::vector<int> workingSet;
-    std::vector<int> &setA = indexMatrix.getIndexSetRef(first, Colours());
-    std::vector<int> &setB = indexMatrix.getIndexSetRef(second, Colours());
+    std::vector<int>* setA = indexMatrix.getIndexSetRef(first, Colours());
+    std::vector<int>* setB = indexMatrix.getIndexSetRef(second, Colours());
     for (auto colour1 : ALL_COLOURS) {
         setA = indexMatrix.getIndexSetRef(first, colour1);
         for (auto colour2 : ALL_COLOURS) {
             setB = indexMatrix.getIndexSetRef(second, colour2);
             workingSet.clear();
-            std::set_intersection(setA.begin(), setA.end(), setB.begin(), setB.end(),std::back_inserter(workingSet));
+            std::set_intersection(setA->begin(), setA->end(), setB->begin(), setB->end(),std::back_inserter(workingSet));
             float p = frequencies.setProbability(workingSet);
             if (p > 0.0f) {
                 mi += p * log2(p);
@@ -216,4 +216,8 @@ float Optimiser::Entropy2Word(int first, int second)
         }
     }
     return mi;
+}
+
+void Optimiser::test()
+{
 }
