@@ -73,6 +73,13 @@ IndexMatrix::IndexMatrix(ColourMatrix& colourMatrix)
 	
 }
 
+void IndexMatrix::getIndexSet(int guess, Colours colours, std::vector<int>* dest) const
+{
+	dest->clear();
+	dest->resize(matrix[guess][colours.asInd()].size());
+	std::copy(matrix[guess][colours.asInd()].begin(), matrix[guess][colours.asInd()].end(), dest->begin());
+}
+
 void IndexMatrix::generateMatrix(ColourMatrix& colourMatrix)
 {
 	matrix.reserve(wordlist->size());

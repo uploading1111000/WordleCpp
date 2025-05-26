@@ -31,3 +31,12 @@ Frequencies::Frequencies(Wordlist& words, const std::string& filename)
         freqs[index] = wordFreq[words[index]];
     }
 }
+
+float Frequencies::setProbability(const std::vector<int>& set)
+{
+    float prob = 0.0f;
+    for (int index : set) {
+        prob += freqs[index];
+    }
+    return prob;
+}

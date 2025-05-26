@@ -26,18 +26,13 @@ class Colours {
 private:
 	uint16_t data;
 public:
-	constexpr Colours() : data(0) {}
-	constexpr Colours(std::array<int, 5> initial);
-	constexpr void set(int index, int colour);
-	constexpr int get(int index) const;
+	Colours() : data(0) {}
+	Colours(std::array<int, 5> initial);;
+	void set(int index, int colour);;
+	int get(int index) const { return (data >> (index * 2)) & 3; };
 	std::string asString() const;
-	constexpr uint16_t asInt() const { return data; }
-	constexpr int asInd() const;
-
+	uint16_t asInt() const { return data; }
+	inline int asInd() const { return get(0) + 3 * get(1) + 9 * get(2) + 27 * get(3) + 81 * get(4); };
 };
 
 Colours findColours(const Word &answer, const Word &guess);
-
-constexpr std::array<Colours, 243> generateAllColours();
-
-inline constexpr auto ALL_COLOURS = generateAllColours();

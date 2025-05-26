@@ -5,14 +5,16 @@
 class Optimiser
 {
 public:
-	Optimiser(const std::string &WordlistPath, const std::string &FrequenciesPath);
-	void maximiseMutualInformation2Word();
-
+	Optimiser(const std::string& WordlistPath, const std::string& FrequenciesPath);
+	void maximiseEntropy2Word();
+	float Entropy2Word(int first, int second);
+	int stringIndex(const std::string& word) { return wordlist.getWordIndex(stringToWord(word)); };
 private:
 	Wordlist wordlist;
 	ColourMatrix colourMatrix;
 	IndexMatrix indexMatrix;
 	Frequencies frequencies;
-	float mutualInformation2Word(int first, int second);
+
+	std::array<Colours, 243> ALL_COLOURS;
 };
 
