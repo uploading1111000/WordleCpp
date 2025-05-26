@@ -3,5 +3,5 @@
 
 int main() {
 	Optimiser optimiser("allowed_words.txt","five_letter_words.bin");
-	optimiser.maximiseEntropy2Word();
+	optimiser.maximiseEntropy2WordMultiThreaded();
 }

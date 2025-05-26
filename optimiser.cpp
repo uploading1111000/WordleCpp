@@ -3,6 +3,11 @@
 #include <chrono>
 #include <cmath>
 #include <algorithm>
+#include <thread>
+#include <mutex>
+#include <vector>
+#include <atomic>
+
 
 Optimiser::Optimiser(const std::string& WordlistPath, const std::string& FrequenciesPath)
     : wordlist(WordlistPath)
@@ -35,14 +40,14 @@ Optimiser::Optimiser(const std::string& WordlistPath, const std::string& Frequen
     }
 }
 
+struct min {
+    int first;
+    int second;
+    float entropy;
+};
 
 void Optimiser::maximiseEntropy2Word()
 {
-    struct min {
-        int first;
-        int second;
-        float entropy;
-    };
     min m = min({ -1, -1, INFINITY });
     for (int i = 0; i < wordlist.size(); i++){
         min mm = min({ i, -1, INFINITY });
@@ -60,6 +65,134 @@ void Optimiser::maximiseEntropy2Word()
             m.entropy = mm.entropy;
         };
         std::cout << wordToString(wordlist[i]) << "(" << i << "/" << wordlist.size() << ") " << mm.entropy << " " << wordToString(wordlist[mm.second]) << "\n";
+    }
+    std::cout << "Min entropy: " << wordToString(wordlist[m.first]) << " " << wordToString(wordlist[m.second]) << " " << m.entropy << "\n";
+}
+void Optimiser::maximiseEntropy2WordMultiThreaded()
+{
+    min global_m = min({ -1, -1, INFINITY });
+    std::mutex m_mutex;
+    const unsigned int num_threads = std::thread::hardware_concurrency();
+    std::atomic<int> current_i(0);  // Atomic counter for work distribution
+    std::atomic<int> current_progress(0); //Atomic counter for progress
+    const int total_words = wordlist.size();
+    std::atomic<bool> should_continue{true};
+
+    // Function to process a chunk of work
+    auto thread_work = [&]() {
+        min local_m = min({ -1, -1, INFINITY });
+        
+        while (should_continue) {
+            // Atomically get and increment the counter
+            int i = current_i++;
+            
+            if (i >= total_words) {
+                break;
+            }
+
+            min mm = min({ i, -1, INFINITY });
+            std::array<std::vector<int>, 243>& firstGuessSet = indexMatrix.getIndexGuessSetRef(i);
+            
+            for (int j = i + 1; j < total_words; j++) {
+                float mi = 0.0f;
+                std::array<std::vector<int>, 243>& secondGuessSet = indexMatrix.getIndexGuessSetRef(j);
+                std::vector<int> workingSet;
+                
+                for (int index1 = 0; index1 < 243; index1++) {
+                    for (int index2 = 0; index2 < 243; index2++) {
+                        workingSet.clear();
+                        std::set_intersection(
+                            firstGuessSet[index1].begin(), firstGuessSet[index1].end(),
+                            secondGuessSet[index2].begin(), secondGuessSet[index2].end(),
+                            std::back_inserter(workingSet));
+                        float p = frequencies.setProbability(workingSet);
+                        if (p > 0.0f) {
+                            mi += p * log2(p);
+                        }
+                    }
+                }
+                
+                if (mi < mm.entropy) {
+                    mm.second = j;
+                    mm.entropy = mi;
+                }
+            }
+
+            // Update local minimum if necessary
+            if (mm.entropy < local_m.entropy) {
+                local_m.first = mm.first;
+                local_m.second = mm.second;
+                local_m.entropy = mm.entropy;
+            }
+
+            // Thread-safe output
+            {
+                std::lock_guard<std::mutex> lock(m_mutex);
+                float progress = (float) current_progress++ / total_words;
+                std::cout << wordToString(wordlist[i]) << "(" << i << "/" << total_words 
+                         << ": " << progress * 100 * (2-progress) << "%) " 
+                         << mm.entropy << " " << wordToString(wordlist[mm.second]) << "\n";
+            }
+        }
+
+        // Update global minimum with thread's local minimum
+        {
+            std::lock_guard<std::mutex> lock(m_mutex);
+            if (local_m.entropy < global_m.entropy) {
+                global_m = local_m;
+            }
+        }
+    };
+
+    // Launch threads
+    std::vector<std::thread> threads;
+    for (unsigned int t = 0; t < num_threads; t++) {
+        threads.emplace_back(thread_work);
+    }
+
+    // Wait for all threads to complete
+    for (auto& thread : threads) {
+        thread.join();
+    }
+
+    std::cout << "Min entropy: " << wordToString(wordlist[global_m.first]) << " " 
+              << wordToString(wordlist[global_m.second]) << " " << global_m.entropy << "\n";
+}
+
+
+void Optimiser::maximiseEntropy2WordFaster()
+{
+    min m = min({ -1, -1, INFINITY });
+    for (int i = 0; i < wordlist.size(); i++) {
+        min mm = min({ i, -1, INFINITY });
+        std::array<std::vector<int>, 243>& firstGuessSet = indexMatrix.getIndexGuessSetRef(i);
+        for (int j = i + 1; j < wordlist.size(); j++) {
+            float mi = 0.0f;
+            std::array<std::vector<int>, 243>& secondGuessSet = indexMatrix.getIndexGuessSetRef(j);
+            std::vector<int> workingSet;
+            for (int index1 = 0; index1 < 243; index1++) {
+                for (int index2 = 0; index2 < 243; index2++) {
+                    workingSet.clear();
+                    std::set_intersection(firstGuessSet[index1].begin(), firstGuessSet[index1].end(), secondGuessSet[index2].begin(), secondGuessSet[index2].end(), std::back_inserter(workingSet));
+                    float p = frequencies.setProbability(workingSet);
+                    if (p > 0.0f) {
+                        mi += p * log2(p);
+                    }
+                }
+            }
+            if (mi < mm.entropy) {
+                mm.second = j;
+                mm.entropy = mi;
+            }
+        }
+        if (mm.entropy < m.entropy) {
+            m.first = mm.first;
+            m.second = mm.second;
+            m.entropy = mm.entropy;
+        };
+        float progress = (i + 1) / (float)wordlist.size();
+        std::cout << wordToString(wordlist[i]) << "(" << i << "/" << wordlist.size() << ": " << progress * 100 * (2-progress) << "%) " << mm.entropy << " " << wordToString(wordlist[mm.second]) << "\n";
+        
     }
     std::cout << "Min entropy: " << wordToString(wordlist[m.first]) << " " << wordToString(wordlist[m.second]) << " " << m.entropy << "\n";
 }

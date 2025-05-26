@@ -7,6 +7,8 @@ class Optimiser
 public:
 	Optimiser(const std::string& WordlistPath, const std::string& FrequenciesPath);
 	void maximiseEntropy2Word();
+	void maximiseEntropy2WordFaster();
+	void maximiseEntropy2WordMultiThreaded();
 	float Entropy2Word(int first, int second);
 	int stringIndex(const std::string& word) { return wordlist.getWordIndex(stringToWord(word)); };
 private:
