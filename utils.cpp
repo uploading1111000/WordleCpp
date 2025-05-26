@@ -58,6 +58,20 @@ Colours findColours(const Word &answer, const Word &guess)
 	return result;
 }
 
+constexpr std::array<Colours, 243> generateAllColours()
+{
+	std::array<Colours, 243> allColours;
+	for (int index = 0; index < 243; index++) {
+		allColours[index].set(0, index % 3);
+		allColours[index].set(1, (index / 3) % 3);
+		allColours[index].set(2, (index / 9) % 3);
+		allColours[index].set(3, (index / 27) % 3);
+		allColours[index].set(4, (index / 81) % 3);
+
+	}
+	return allColours;
+}
+
 Wordlist::Wordlist(const std::string& filename)
 {
 	std::ifstream file(filename);
@@ -100,47 +114,46 @@ bool Wordlist::isless(const Word& lhs, const Word& rhs) const
 	}
 	return false;
 }
-
-Colours::Colours(int* initial)
+constexpr Colours::Colours(std::array<int, 5> initial)
 {
-	data = 0;
-	for (int i = 0; i < 5; i++){
-		set(i, initial[i]);
-	}
+    data = 0;
+    for (int i = 0; i < 5; i++) {
+        set(i, initial[i]);
+    }
 }
 
-inline void Colours::set(int index, int colour)
+constexpr void Colours::set(int index, int colour)
 {
-	uint16_t mask = 3 << (index * 2);
-	data &= ~mask;
-	data |= colour << (index * 2);
+    uint16_t mask = 3 << (index * 2);
+    data &= ~mask;
+    data |= colour << (index * 2);
 }
 
-int Colours::get(int index) const
+constexpr int Colours::get(int index) const
 {
-	return (data >> (index * 2)) & 3;
+    return (data >> (index * 2)) & 3;
 }
 
 std::string Colours::asString() const
 {
-	std::string result;
-	for (int i = 0; i < 5; i++){
-		switch (get(i)){
-		case 0:
-			result += "b";
-			break;
-		case 1:
-			result += "y";
-			break;
-		case 2:
-			result += "g";
-			break;
-		}
-	}
-	return result;
+    std::string result;
+    for (int i = 0; i < 5; i++) {
+        switch (get(i)) {
+        case 0:
+            result += "b";
+            break;
+        case 1:
+            result += "y";
+            break;
+        case 2:
+            result += "g";
+            break;
+        }
+    }
+    return result;
 }
 
-int Colours::asInd() const
+constexpr int Colours::asInd() const
 {
-	return get(0) + 3 * get(1) + 9 * get(2) + 27 * get(3) + 81 * get(4);
+    return get(0) + 3 * get(1) + 9 * get(2) + 27 * get(3) + 81 * get(4);
 }
