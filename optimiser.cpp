@@ -30,6 +30,11 @@ Optimiser::Optimiser(const std::string& WordlistPath, const std::string& Frequen
         std::cout << "Loaded frequencies\n";
         return freq;
     }())
+    , reducedMatrix([&]() {
+    auto redMat = ReducedMatrix(indexMatrix, frequencies);
+    std::cout << "Loaded reduced matrix\n";
+    return redMat;
+        }())
 {
     for (int index = 0; index < 243; index++) {
         ALL_COLOURS[index].set(0, index % 3);
@@ -91,11 +96,11 @@ void Optimiser::maximiseEntropy2WordMultiThreaded()
             }
 
             min mm = min({ i, -1, INFINITY });
-            std::array<std::vector<int>, 243>* firstGuessSet = indexMatrix.getIndexGuessSetRef(i);
+            std::array<std::vector<int>, 243>* firstGuessSet = reducedMatrix.getIndexGuessSetRef(i);
             
             for (int j = i + 1; j < total_words; j++) {
                 float mi = 0.0f;
-                std::array<std::vector<int>, 243>* secondGuessSet = indexMatrix.getIndexGuessSetRef(j);
+                std::array<std::vector<int>, 243>* secondGuessSet = reducedMatrix.getIndexGuessSetRef(j);
                 std::vector<int> workingSet;
                 
                 for (int index1 = 0; index1 < 243; index1++) {

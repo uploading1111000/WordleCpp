@@ -36,3 +36,4 @@ public:
 };
 
 Colours findColours(const Word &answer, const Word &guess);
+Colours asColours(int ind);

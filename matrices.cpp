@@ -134,3 +134,77 @@ void IndexMatrix::loadMatrix()
 
 	infile.close();
 }
+
+ReducedMatrix::ReducedMatrix(IndexMatrix& indexMatrix, Frequencies& freqs)
+{
+	wordlist = indexMatrix.getWordlist();
+	frequencies = &freqs;
+	if (std::filesystem::exists("reduced_index_matrix.bin")) {
+		loadMatrix();
+	}
+	else {
+		generateMatrix(indexMatrix);
+		saveMatrix();
+	}
+	
+}
+
+void ReducedMatrix::generateMatrix(IndexMatrix& indexMatrix)
+{
+	matrix.resize(wordlist->size());
+	for (int guess = 0; guess < wordlist->size(); guess++)
+	{
+		std::array<std::vector<int>, 243>* GuessSet = indexMatrix.getIndexGuessSetRef(guess);
+		std::array<std::vector<int>, 243> sets;
+		for (int ind = 0; ind < 243; ind++)
+		{
+			auto set = GuessSet->operator[](ind);
+			for (int element : set) {
+				if (frequencies->getIndexFreq(element) != 0) {
+					sets[ind].push_back(element);
+				}
+			}
+		}
+		matrix[guess] = sets;
+	}
+}
+
+void ReducedMatrix::saveMatrix()
+{
+	std::ofstream outfile("reduced_index_matrix.bin", std::ios::binary);
+
+	size_t vectorSize = matrix.size();
+	outfile.write(reinterpret_cast<const char*>(&vectorSize), sizeof(vectorSize));
+
+	for (const auto& arrayOfSets : matrix) {
+		for (const auto& set : arrayOfSets) {
+			size_t setSize = set.size();
+			outfile.write(reinterpret_cast<const char*>(&setSize), sizeof(setSize));
+
+			outfile.write(reinterpret_cast<const char*>(set.data()), setSize * sizeof(int));
+		}
+	}
+	outfile.close();
+}
+
+void ReducedMatrix::loadMatrix()
+{
+	std::ifstream infile("reduced_index_matrix.bin", std::ios::binary);
+
+	size_t vectorSize;
+	infile.read(reinterpret_cast<char*>(&vectorSize), sizeof(vectorSize));
+
+	matrix.resize(vectorSize);
+
+	for (auto& arrayOfSets : matrix) {
+		for (auto& set : arrayOfSets) {
+			size_t setSize;
+			infile.read(reinterpret_cast<char*>(&setSize), sizeof(setSize));
+
+			set.resize(setSize);
+			infile.read(reinterpret_cast<char*>(set.data()), setSize * sizeof(int));
+		}
+	}
+
+	infile.close();
+}

@@ -58,6 +58,16 @@ Colours findColours(const Word &answer, const Word &guess)
 	return result;
 }
 
+Colours asColours(int ind)
+{
+	Colours result;
+	for (int i = 0; i < 5; i++){
+		result.set(i, ind % 3);
+		ind /= 3;
+	}
+	return result;
+}
+
 Wordlist::Wordlist(const std::string& filename)
 {
 	std::ifstream file(filename);

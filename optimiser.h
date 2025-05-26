@@ -17,6 +17,7 @@ private:
 	ColourMatrix colourMatrix;
 	IndexMatrix indexMatrix;
 	Frequencies frequencies;
+	ReducedMatrix reducedMatrix;
 
 	std::array<Colours, 243> ALL_COLOURS;
 };
