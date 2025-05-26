@@ -10,6 +10,7 @@ public:
 	void maximiseEntropy2WordFaster();
 	void maximiseEntropy2WordMultiThreaded();
 	float Entropy2Word(int first, int second);
+	float entropy1Index(int index);
 	int stringIndex(const std::string& word) { return wordlist.getWordIndex(stringToWord(word)); };
 	void test();
 private:

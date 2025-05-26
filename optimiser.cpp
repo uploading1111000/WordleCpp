@@ -223,6 +223,20 @@ float Optimiser::Entropy2Word(int first, int second)
     return mi;
 }
 
+float Optimiser::entropy1Index(int index)
+{
+    float mi = 0.0f;
+    for (auto colour : ALL_COLOURS) {
+        std::vector<int> set;
+        indexMatrix.getIndexSet(index, colour,&set);
+        float p = frequencies.setProbability(set);
+        if (p > 0.0f) {
+            mi += p * log2(p);
+        }
+    }
+    return mi;
+}
+
 void Optimiser::test()
 {
 }
