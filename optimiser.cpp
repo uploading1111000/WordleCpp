@@ -383,3 +383,19 @@ int Optimiser::minimiseEntropySet1Step(std::vector<int>& set)
     }
     return m.first;
 }
+
+void Optimiser::reverseSearch(std::vector<int> words, std::vector<Colours> data)
+{
+    for (int i = 0; i < wordlist.size(); i++) {
+        bool valid = true;
+        for (int j = 0; j < words.size(); j++) {
+            if (colourMatrix.getColour(words[j], i).asInt() != data[j].asInt()) {
+                valid = false;
+                break;
+            }
+        }
+        if (valid) {
+            std::cout << wordToString(wordlist[i]) << "\n";
+        }
+    }
+}

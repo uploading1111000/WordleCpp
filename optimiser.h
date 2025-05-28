@@ -23,6 +23,8 @@ public:
 	
 	int minimiseEntropySet1Step(std::vector<int>& set);
 
+	void reverseSearch(std::vector<int> words, std::vector<Colours> data);
+
 private:
 	Wordlist wordlist;
 	ColourMatrix colourMatrix;
