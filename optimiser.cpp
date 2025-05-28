@@ -7,6 +7,7 @@
 #include <mutex>
 #include <vector>
 #include <atomic>
+#include <numeric>
 
 
 Optimiser::Optimiser(const std::string& WordlistPath, const std::string& FrequenciesPath)
@@ -94,11 +95,14 @@ void Optimiser::maximiseEntropy2WordMultiThreaded()
             if (i >= total_words) {
                 break;
             }
+            if (frequencies.getIndexFreq(i) == 0.0f) continue;
+#
 
             min mm = min({ i, -1, INFINITY });
             std::array<std::vector<int>, 243>* firstGuessSet = reducedMatrix.getIndexGuessSetRef(i);
             
             for (int j = i + 1; j < total_words; j++) {
+                if (frequencies.getIndexFreq(j) == 0.0f) continue;
                 float mi = 0.0f;
                 std::array<std::vector<int>, 243>* secondGuessSet = reducedMatrix.getIndexGuessSetRef(j);
                 std::vector<int> workingSet;
@@ -163,7 +167,101 @@ void Optimiser::maximiseEntropy2WordMultiThreaded()
     std::cout << "Min entropy: " << wordToString(wordlist[global_m.first]) << " " 
               << wordToString(wordlist[global_m.second]) << " " << global_m.entropy << "\n";
 }
+void Optimiser::maximiseEntropy2WordValidMultiThreaded()
+{
+    min global_m = min({ -1, -1, INFINITY });
+    std::mutex m_mutex;
+    const unsigned int num_threads = std::thread::hardware_concurrency();
+    std::atomic<int> current_i(0);  // Atomic counter for work distribution
+    std::atomic<int> current_progress(0); //Atomic counter for progress
+    const int total_words = wordlist.size();
+    std::atomic<bool> should_continue{ true };
 
+    // Function to process a chunk of work
+    auto thread_work = [&]() {
+        min local_m = min({ -1, -1, INFINITY });
+
+        while (should_continue) {
+            // Atomically get and increment the counter
+            int i = current_i++;
+
+            if (i >= total_words) {
+                break;
+            }
+            if (frequencies.getIndexFreq(i) == 0.0f) continue;
+
+            std::vector<int> workingSet;
+            std::array<std::vector<int>, 243>* firstGuessSet = reducedMatrix.getIndexGuessSetRef(i);
+            min mm = min({ i, -1, INFINITY });
+            for (int index1 = 0; index1 < 243; index1++) {
+                std::vector<int>* firstGuess = &firstGuessSet->operator[](index1);
+                float totalP = frequencies.setProbability(*firstGuess);
+                min mj = min({ i, -1, INFINITY });
+                for (int j : *firstGuess) {
+                    std::array<std::vector<int>, 243>* secondGuessSet = reducedMatrix.getIndexGuessSetRef(j);
+                    float entropy = 0.0f;
+                    for (int index2 = 0; index2 < 243; index2++) {
+                        workingSet.clear();
+                        std::set_intersection(
+                            firstGuessSet->operator[](index1).begin(), firstGuessSet->operator[](index1).end(),
+                            secondGuessSet->operator[](index2).begin(), secondGuessSet->operator[](index2).end(),
+                            std::back_inserter(workingSet));
+                        float p = frequencies.setProbability(workingSet) / totalP;
+                        if (p > 0.0f) {
+                            entropy += p * log2(p);
+                        }
+                    }
+                    if (entropy < mj.entropy) {
+                        mj.second = j;
+                        mj.entropy = entropy;
+                    }
+                }
+                if (mj.entropy < mm.entropy) {
+                    mm.second = mj.second;
+                    mm.entropy = mj.entropy;
+                }
+            }
+
+            // Update local minimum if necessary
+            if (mm.entropy < local_m.entropy) {
+                local_m.first = mm.first;
+                local_m.second = mm.second;
+                local_m.entropy = mm.entropy;
+            }
+
+            // Thread-safe output
+            {
+                std::lock_guard<std::mutex> lock(m_mutex);
+                float progress = (float)current_progress++ / total_words;
+                /*std::cout << wordToString(wordlist[i]) << "(" << i << "/" << total_words
+                    << ": " << progress * 100 << "%) "
+                    << mm.entropy << "\n";*/
+            }
+        }
+
+        // Update global minimum with thread's local minimum
+        {
+            std::lock_guard<std::mutex> lock(m_mutex);
+            if (local_m.entropy < global_m.entropy) {
+                global_m = local_m;
+            }
+        }
+        };
+
+    // Launch threads
+    std::vector<std::thread> threads;
+    for (unsigned int t = 0; t < num_threads; t++) {
+        threads.emplace_back(thread_work);
+    }
+
+    // Wait for all threads to complete
+    for (auto& thread : threads) {
+        thread.join();
+    }
+
+    std::cout << "Min entropy: " << wordToString(wordlist[global_m.first]) << " "
+        << wordToString(wordlist[global_m.second]) << " " << global_m.entropy << "\n";
+}
 
 void Optimiser::maximiseEntropy2WordFaster()
 {
@@ -202,6 +300,7 @@ void Optimiser::maximiseEntropy2WordFaster()
     std::cout << "Min entropy: " << wordToString(wordlist[m.first]) << " " << wordToString(wordlist[m.second]) << " " << m.entropy << "\n";
 }
 
+
 float Optimiser::Entropy2Word(int first, int second)
 {
     float mi = 0.0f;
@@ -239,4 +338,48 @@ float Optimiser::entropy1Index(int index)
 
 void Optimiser::test()
 {
+}
+
+std::vector<int> Optimiser::ALL_WORDS() const
+{
+    std::vector<int> words(wordlist.size()); 
+    std::iota(words.begin(), words.end(), 0);
+    return words;
+}
+
+std::vector<int> Optimiser::POSSIBLE_WORDS() const
+{
+    std::vector<int> words;
+    words.reserve(2601);
+    for (int i = 0; i < wordlist.size(); i++) {
+        if (frequencies.getIndexFreq(i) > 0.0f) {
+            words.push_back(i);
+        }
+    }
+    return words;
+}
+
+int Optimiser::minimiseEntropySet1Step(std::vector<int>& set)
+{
+    min m = min({ -1, -1, INFINITY });
+    std::vector<int> workingSet;
+    float reducedP = frequencies.setProbability(set);
+    for (int index : set) {
+        std::array<std::vector<int>, 243>* firstGuessSet = indexMatrix.getIndexGuessSetRef(index);
+        float entropy = 0.0f;
+        for (int colourI = 0; colourI < 243; colourI++) {
+            std::vector<int>* newSet = &firstGuessSet->operator[](colourI);
+            workingSet.clear();
+            std::set_intersection(set.begin(), set.end(), newSet->begin(), newSet->end(), std::back_inserter(workingSet));
+            float p = frequencies.setProbability(workingSet);
+            if (p > 0.0f) {
+                entropy += p * log2(p);
+            }
+        }
+        if (entropy < m.entropy) {
+            m.first = index;
+            m.entropy = entropy;
+        }
+    }
+    return m.first;
 }
