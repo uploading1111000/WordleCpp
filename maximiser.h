@@ -3,7 +3,7 @@
 #include <vector>
 
 struct pair {
-	int entropy;
+	float entropy;
 	int index;
 	
 	// Comparison operator for priority queue (larger entropy comes first for max-heap)
@@ -11,7 +11,7 @@ struct pair {
 };
 
 
-class maximiser
+class Maximiser
 {
 private:
 	std::priority_queue<pair> pq;
@@ -19,12 +19,12 @@ private:
 
 public:
 	// Constructor to set the maximum number of elements to keep
-	maximiser(size_t n);
+	Maximiser(int n);
 	
 	// Add a new element, keeping only the N smallest
-	void add(int entropy, int index);
+	void add(float entropy, int index);
 	
 	// Get all elements in descending order of entropy
-	std::vector<pair> get_all();
+	std::vector<int> get_all();
 };
 

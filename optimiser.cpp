@@ -8,6 +8,7 @@
 #include <vector>
 #include <atomic>
 #include <numeric>
+#include "maximiser.h"
 
 
 Optimiser::Optimiser(const std::string& WordlistPath, const std::string& FrequenciesPath)
@@ -44,6 +45,7 @@ Optimiser::Optimiser(const std::string& WordlistPath, const std::string& Frequen
         ALL_COLOURS[index].set(3, (index / 27) % 3);
         ALL_COLOURS[index].set(4, (index / 81) % 3);
     }
+    testN = 0;
 }
 
 struct min {
@@ -336,6 +338,97 @@ float Optimiser::entropy1Index(int index)
     return mi;
 }
 
+std::vector<int> Optimiser::getLowestEntropyWords(std::vector<int>& set, int n)
+{
+    Maximiser Max(n);
+    for (int i = 0; i < wordlist.size(); i++) {
+        std::array<std::vector<int>, 243>* setA = indexMatrix.getIndexGuessSetRef(i);
+        float entropy = 0.0f;
+        std::vector<int> workingSet;
+        for (int colourI = 0; colourI < 243; colourI++) {
+            workingSet.clear();
+            std::set_intersection(set.begin(), set.end(), setA->operator[](colourI).begin(), setA->operator[](colourI).end(), std::back_inserter(workingSet));
+            float p = frequencies.setProbability(workingSet);
+            if (p > 0.0f) {
+                entropy += p * log2(p);
+            }
+        }
+        Max.add(entropy,i);
+    }
+    return Max.get_all();
+}
+
+int Optimiser::bruteForceLowestExpectedValue(std::vector<int>& set, int n, int depth)
+{
+    std::vector<int> wordsToTest = getLowestEntropyWords(set, n);
+    struct expMin {
+        int index;
+        float expectation;
+    };
+    expMin m = expMin({ -1, INFINITY });
+    for (int word : wordsToTest) {
+        float expectation = bruteForceRecurseExpectation(set,word, n, depth, INFINITY);
+        if (expectation < m.expectation) {
+            m.index = word;
+            m.expectation = expectation;
+        }
+    }
+    std::cout << wordToString(wordlist[m.index]) << " " << m.expectation << std::endl;
+    return m.index;
+}
+
+float Optimiser::bruteForceRecurseExpectation(std::vector<int>& set, int word, int n, int depth, float alpha)
+{
+    if (depth == 6) {
+        return INFINITY;
+    }
+    float totalProb = frequencies.setProbability(set);
+    std::array<std::vector<int>,243>* wordSet = indexMatrix.getIndexGuessSetRef(word);
+    float E = 0.0f;
+    std::vector<int> workingSet;
+    for (int colourI = 0; colourI < 242; colourI++) { //242 as 243 corresponds to being correct i.e. 0 expectation
+        workingSet.clear();
+        std::set_intersection(set.begin(), set.end(), wordSet->operator[](colourI).begin(), wordSet->operator[](colourI).end(), std::back_inserter(workingSet));
+        if (workingSet.size() == 0) {
+            E += 0.0f;
+        }
+        else if (workingSet.size() == 1) {
+            E += frequencies.setProbability(workingSet) / totalProb;
+        }
+        else if (workingSet.size() == 2) {
+            E += 1.5f * frequencies.setProbability(workingSet) / totalProb;
+        }
+        else {
+            float p = frequencies.setProbability(workingSet) / totalProb;
+            std::vector<int> EntropyWords = getLowestEntropyWords(workingSet, n);
+
+            float minExp = INFINITY;
+            for (int newWord : EntropyWords) {
+                float expectation = bruteForceRecurseExpectation(workingSet, newWord, n, depth + 1, minExp);
+                if (expectation < minExp) {
+                    minExp = expectation;
+                }
+            }
+            if (depth > 1) {
+                for (int newWord : workingSet) {
+                    float expectation = bruteForceRecurseExpectation(workingSet, newWord, n, depth + 1, minExp);
+                    if (expectation < minExp) {
+                        minExp = expectation;
+                    }
+                }
+            }
+            E += p * (1 + minExp);
+        }
+        if (E > alpha) {
+            return E;
+        }
+    }
+    if (depth == 1) {
+        std::cout << testN++ << "\n";
+    }
+    return E;
+}
+
 void Optimiser::test()
 {
     std::vector<int> setA;
@@ -412,3 +505,5 @@ void Optimiser::reverseSearch(std::vector<int> words, std::vector<Colours> data)
         }
     }
 }
+
+

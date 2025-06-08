@@ -1,4 +1,5 @@
 #include "maximiser.h"
+#include <iostream>
 
 // Comparison operator for priority queue (larger entropy comes first for max-heap)
 bool pair::operator<(const pair& other) const {
@@ -6,10 +7,10 @@ bool pair::operator<(const pair& other) const {
 }
 
 // Constructor to set the maximum number of elements to keep
-maximiser::maximiser(size_t n) : max_size(n) {}
+Maximiser::Maximiser(int n) : max_size(n) {}
 
 // Add a new element, keeping only the N smallest
-void maximiser::add(int entropy, int index) {
+void Maximiser::add(float entropy, int index) {
     pair p{entropy, index};
     
     if (pq.size() < max_size) {
@@ -21,10 +22,10 @@ void maximiser::add(int entropy, int index) {
 }
 
 // Get all elements in descending order of entropy
-std::vector<pair> maximiser::get_all() {
-    std::vector<pair> result;
+std::vector<int> Maximiser::get_all() {
+    std::vector<int> result;
     while (!pq.empty()) {
-        result.push_back(pq.top());
+        result.push_back(pq.top().index);
         pq.pop();
     }
     return result;

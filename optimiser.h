@@ -14,6 +14,9 @@ public:
 	float Entropy2Word(int first, int second);
 	float entropy1Index(int index);
 
+	std::vector<int> getLowestEntropyWords(std::vector<int>& set, int n);
+	int bruteForceLowestExpectedValue(std::vector<int>& set, int n, int depth);
+
 	int stringIndex(const std::string& word) { return wordlist.getWordIndex(stringToWord(word)); };
 	Word wordIndex(int index) const { return wordlist[index]; };
 
@@ -26,6 +29,7 @@ public:
 	void reverseSearch(std::vector<int> words, std::vector<Colours> data);
 
 private:
+	float bruteForceRecurseExpectation(std::vector<int>& set, int word, int n, int depth, float alpha);
 	Wordlist wordlist;
 	ColourMatrix colourMatrix;
 	IndexMatrix indexMatrix;
@@ -33,5 +37,6 @@ private:
 	ReducedMatrix reducedMatrix;
 
 	std::array<Colours, 243> ALL_COLOURS;
+	int testN;
 };
 
