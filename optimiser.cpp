@@ -338,6 +338,19 @@ float Optimiser::entropy1Index(int index)
 
 void Optimiser::test()
 {
+    std::vector<int> setA;
+    setA = *reducedMatrix.getIndexSetRef(stringIndex("trice"), Colours({0,1,0,0,2}));
+    std::vector<int> setB;
+    setB = *reducedMatrix.getIndexSetRef(stringIndex("sargo"), Colours({ 1,0,1,0,0 }));
+    std::vector<int> workingSet;
+    std::set_intersection(setA.begin(), setA.end(), setB.begin(), setB.end(), std::back_inserter(workingSet));
+    std::cout << "Valid:" << std::endl;
+    for (int C : workingSet) {
+        std::cout << wordToString(wordlist[C]) << "\n";
+    }
+    std::cout << "Optimal:" << std::endl;
+    int optimal = minimiseEntropySet1Step(workingSet);
+    std::cout << wordToString(wordlist[optimal]) << "\n";
 }
 
 std::vector<int> Optimiser::ALL_WORDS() const
@@ -364,7 +377,7 @@ int Optimiser::minimiseEntropySet1Step(std::vector<int>& set)
     min m = min({ -1, -1, INFINITY });
     std::vector<int> workingSet;
     float reducedP = frequencies.setProbability(set);
-    for (int index : set) {
+    for (int index = 0; index < wordlist.size(); index++) {
         std::array<std::vector<int>, 243>* firstGuessSet = indexMatrix.getIndexGuessSetRef(index);
         float entropy = 0.0f;
         for (int colourI = 0; colourI < 243; colourI++) {
