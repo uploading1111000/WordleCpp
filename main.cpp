@@ -25,9 +25,14 @@ int main() {
 	for (int i = 0; i < lowestEntropyWords.size(); i++) {
 		std::cout << wordToString(optimiser.wordIndex(lowestEntropyWords[i])) << std::endl;
 	}*/
+	
 
-	int wordOptimum = optimiser.bruteForceLowestExpectedValue(POSSIBLE_WORDS, 8, 0);
-	std::cout << wordOptimum << std::endl;
+
+	//int wordOptimum = optimiser.bruteForceLowestExpectedValue(POSSIBLE_WORDS, 8, 0);
+	//std::cout << wordOptimum << std::endl;
+	while (true) {
+		optimiser.play();
+	}
 	// 
 	//std::cout << "Optimum first step word: " << wordToString(optimiser.wordIndex(optimum)) << std::endl;
 	//std::cout << "Entropy: " << optimiser.entropy1Index(optimum) << std::endl;
@@ -41,5 +46,7 @@ int main() {
 	//std::vector<int> words = {  optimiser.stringIndex("grift"), optimiser.stringIndex("folio"), optimiser.stringIndex("alarm") };
 	//std::vector<Colours> data = { Colours({0,0,0,0,2}), Colours({0,0,1,0,0}), Colours({0,0,0,0,0}) };
 	//optimiser.reverseSearch(words, data);
+
+	//optimiser.maxWord2Prob();
 	return 0;
 }

@@ -342,7 +342,7 @@ std::vector<int> Optimiser::getLowestEntropyWords(std::vector<int>& set, int n)
 {
     Maximiser Max(n);
     for (int i = 0; i < wordlist.size(); i++) {
-        std::array<std::vector<int>, 243>* setA = indexMatrix.getIndexGuessSetRef(i);
+        std::array<std::vector<int>, 243>* setA = reducedMatrix.getIndexGuessSetRef(i);
         float entropy = 0.0f;
         std::vector<int> workingSet;
         for (int colourI = 0; colourI < 243; colourI++) {
@@ -358,16 +358,40 @@ std::vector<int> Optimiser::getLowestEntropyWords(std::vector<int>& set, int n)
     return Max.get_all();
 }
 
+std::vector<int> Optimiser::getLowestEntropyWordsOptimized(std::vector<int>& set, int n)
+{
+    Maximiser Max(n);
+    for (int guess = 0; guess < wordlist.size(); guess++) {
+        float entropy = 0.0f;
+        std::vector<int> workingSet;
+        std::array<std::vector<int>, 243> byColours;
+        for (int answer : set) {
+            Colours colour = colourMatrix.getColour(answer,guess);
+            byColours[colour.asInd()].push_back(answer);
+        }
+        for (int colourI = 0; colourI < 243; colourI++) {
+            float p = frequencies.setProbability(byColours[colourI]);
+            if (p > 0.0f) {
+                entropy += p * log2(p);
+            }
+        }
+        Max.add(entropy, guess);
+    }
+    return Max.get_all();
+}
+
 int Optimiser::bruteForceLowestExpectedValue(std::vector<int>& set, int n, int depth)
 {
-    std::vector<int> wordsToTest = getLowestEntropyWords(set, n);
+    std::vector<int> wordsToTest = getLowestEntropyWordsOptimized(set, n);
+    std::reverse(wordsToTest.begin(), wordsToTest.end());
+    if (depth != 0) wordsToTest.insert(wordsToTest.end(), set.begin(), set.end());
     struct expMin {
         int index;
         float expectation;
     };
     expMin m = expMin({ -1, INFINITY });
     for (int word : wordsToTest) {
-        float expectation = bruteForceRecurseExpectation(set,word, n, depth, INFINITY);
+        float expectation = bruteForceRecurseExpectation(set,word, n, depth, m.expectation);
         if (expectation < m.expectation) {
             m.index = word;
             m.expectation = expectation;
@@ -382,44 +406,57 @@ float Optimiser::bruteForceRecurseExpectation(std::vector<int>& set, int word, i
     if (depth == 6) {
         return INFINITY;
     }
-    float totalProb = frequencies.setProbability(set);
-    std::array<std::vector<int>,243>* wordSet = indexMatrix.getIndexGuessSetRef(word);
+    float totalProb = set.size();
     float E = 0.0f;
-    std::vector<int> workingSet;
-    for (int colourI = 0; colourI < 242; colourI++) { //242 as 243 corresponds to being correct i.e. 0 expectation
-        workingSet.clear();
-        std::set_intersection(set.begin(), set.end(), wordSet->operator[](colourI).begin(), wordSet->operator[](colourI).end(), std::back_inserter(workingSet));
-        if (workingSet.size() == 0) {
-            E += 0.0f;
+    std::array<std::vector<int>, 243> byColours;
+    for (int answer : set) {
+        Colours colour = colourMatrix.getColour(answer, word);
+        byColours[colour.asInd()].push_back(answer);
+    }
+    for (int I = 0; I < 242; I++) { //242 as 243 corresponds to being correct i.e. 0 expectation
+        
+        if (byColours[I].size() == 0) {
+            continue;
         }
-        else if (workingSet.size() == 1) {
-            E += frequencies.setProbability(workingSet) / totalProb;
+        float p = byColours[I].size() / totalProb;
+        if (byColours[I].size() == 1) {
+            E += p;
         }
-        else if (workingSet.size() == 2) {
-            E += 1.5f * frequencies.setProbability(workingSet) / totalProb;
+        else if (byColours[I].size() == 2) {
+            E += 1.5f * p;
         }
         else {
-            float p = frequencies.setProbability(workingSet) / totalProb;
-            std::vector<int> EntropyWords = getLowestEntropyWords(workingSet, n);
+            std::vector<int> EntropyWords = getLowestEntropyWordsOptimized(byColours[I], std::min(n,int(byColours[I].size())));
 
             float minExp = INFINITY;
-            for (int newWord : EntropyWords) {
-                float expectation = bruteForceRecurseExpectation(workingSet, newWord, n, depth + 1, minExp);
-                if (expectation < minExp) {
-                    minExp = expectation;
-                }
-            }
-            if (depth > 1) {
-                for (int newWord : workingSet) {
-                    float expectation = bruteForceRecurseExpectation(workingSet, newWord, n, depth + 1, minExp);
+            if (byColours[I].size() <= 9) { //very small sets then it makes sense to go for gold before checking for information
+                for (int newWord : byColours[I]) {
+                    float expectation = bruteForceRecurseExpectation(byColours[I], newWord, n, depth + 1, minExp);
                     if (expectation < minExp) {
                         minExp = expectation;
                     }
                 }
             }
+            for (int newWord : EntropyWords) {
+                float expectation = bruteForceRecurseExpectation(byColours[I], newWord, n, depth + 1, minExp);
+                if (expectation < minExp) {
+                    minExp = expectation;
+                }
+            }
+            /*if (byColours[I].size() > 9 and byColours[I].size() <= 33) { //small sets it makes sense to check if theres any impact by guessing, but do it after the (in most cases better) information plays
+                for (int newWord : byColours[I]) {
+                    float expectation = bruteForceRecurseExpectation(byColours[I], newWord, n, depth + 1, minExp);
+                    if (expectation < minExp) {
+                        minExp = expectation;
+                    }
+                }
+            }*/
             E += p * (1 + minExp);
         }
-        if (E > alpha) {
+        if (E >= alpha) {
+            if (depth == 1) {
+                std::cout << testN++ << "\n";
+            }
             return E;
         }
     }
@@ -427,6 +464,34 @@ float Optimiser::bruteForceRecurseExpectation(std::vector<int>& set, int word, i
         std::cout << testN++ << "\n";
     }
     return E;
+}
+
+void Optimiser::maxWord2Prob()
+{
+    //P(getting it on 2) = sum(P(colour) * P(getting it on 2 | colour)) over colours  with P(colour) > 0
+    // =sum((Number of words with colour / Total words) * (1 / Number of words with colour))
+    // =sum(1/Number of words with colour) i.e. const, maximised by finding word that produces as many colours with P > 0
+    Maximiser Max(10);
+    std::vector<int> POSSIBLE = POSSIBLE_WORDS();
+    std::vector<int> scores;
+    scores.reserve(wordlist.size());
+    for (int i = 0; i < wordlist.size(); i++) {
+        std::array<bool, 243> hasColour = { false };
+        for (int j = 0; j < POSSIBLE.size(); j++) {
+            Colours colour = colourMatrix.getColour(POSSIBLE[j], i);
+            hasColour[colour.asInd()] = true;
+        }
+        int count = std::count(hasColour.begin(), hasColour.end(), true);
+        scores.push_back(count);
+        Max.add(-count, i);
+    }
+    std::vector<int> maxWords = Max.get_all();
+    std::reverse(maxWords.begin(), maxWords.end());
+    for (int i : maxWords) {
+        std::cout << wordToString(wordlist[i]) << " " << scores[i] << "\n";
+    }
+    std::cout << scores[stringIndex("pesto")] << "\n";
+    std::cout << scores[stringIndex("super")] << "\n";
 }
 
 void Optimiser::test()
@@ -444,6 +509,62 @@ void Optimiser::test()
     std::cout << "Optimal:" << std::endl;
     int optimal = minimiseEntropySet1Step(workingSet);
     std::cout << wordToString(wordlist[optimal]) << "\n";
+}
+
+void Optimiser::play()
+{
+    /*std::vector<int> initial = POSSIBLE_WORDS();
+    std::vector<int> guesses = {stringIndex("trace"),stringIndex("slain"),stringIndex("flail") };
+    std::vector<Colours> data = { Colours({ 0, 0, 2, 0, 0 }),Colours({ 0, 2, 2, 2, 0 }),Colours({ 0, 2, 2, 2, 0 }) };
+    for (int i = 0; i < guesses.size(); i++) {
+        std::vector<int> set;
+        indexMatrix.getIndexSet(guesses[i], data[i], &set);
+        std::vector<int> newSet;
+        std::set_intersection(initial.begin(), initial.end(), set.begin(), set.end(), std::back_inserter(newSet));
+        initial = newSet;
+    }
+    bruteForceLowestExpectedValue(initial, 100, guesses.size());*/
+    /*std::vector<int> set;
+    indexMatrix.getIndexSet(stringIndex("trace"), Colours({ 0,0,2,0,0 }), &set);
+    std::vector<int> newSet;
+    std::set_intersection(initial.begin(), initial.end(), set.begin(), set.end(), std::back_inserter(newSet));
+    int optimum = minimiseEntropySet1Step(newSet, newSet);
+    std::cout << wordToString(wordlist[optimum]) << "\n";*/
+    std::cout << "trace" << std::endl;
+    std::vector<int> initial = POSSIBLE_WORDS();
+    std::string rawInput;
+    std::getline(std::cin, rawInput);
+    Colours input;
+    for (int i = 0; i < 5; i++) {
+        input.set(i, rawInput[i] - '0');
+    }
+    std::vector<int>* firstSet = reducedMatrix.getIndexSetRef(stringIndex("trace"), input);
+    std::vector<int> newSet;
+    std::set_intersection(initial.begin(), initial.end(), firstSet->begin(), firstSet->end(), std::back_inserter(newSet));
+    initial = newSet;
+    int guess = minimiseEntropySet1Step(initial, initial);
+    std::cout << wordToString(wordlist[guess]) << std::endl;
+    while (true) {
+        std::getline(std::cin, rawInput);
+        for (int i = 0; i < 5; i++) {
+            input.set(i, rawInput[i] - '0');
+        }
+        firstSet = reducedMatrix.getIndexSetRef(guess, input);
+        newSet.clear();
+        std::set_intersection(initial.begin(), initial.end(), firstSet->begin(), firstSet->end(), std::back_inserter(newSet));
+        initial = newSet;
+        if (initial.size() == 1) {
+            std::cout << "Answer:" << wordToString(wordlist[initial[0]]) << std::endl;
+            return;
+        }
+        else if (initial.size() == 0) {
+            std::cout << "No possible words" << std::endl;
+            return;
+        }
+        guess = bruteForceLowestExpectedValue(initial, 100, 2);
+        std::cout << wordToString(wordlist[guess]) << std::endl;
+
+    }
 }
 
 std::vector<int> Optimiser::ALL_WORDS() const
@@ -471,6 +592,31 @@ int Optimiser::minimiseEntropySet1Step(std::vector<int>& set)
     std::vector<int> workingSet;
     float reducedP = frequencies.setProbability(set);
     for (int index = 0; index < wordlist.size(); index++) {
+        std::array<std::vector<int>, 243>* firstGuessSet = indexMatrix.getIndexGuessSetRef(index);
+        float entropy = 0.0f;
+        for (int colourI = 0; colourI < 243; colourI++) {
+            std::vector<int>* newSet = &firstGuessSet->operator[](colourI);
+            workingSet.clear();
+            std::set_intersection(set.begin(), set.end(), newSet->begin(), newSet->end(), std::back_inserter(workingSet));
+            float p = frequencies.setProbability(workingSet);
+            if (p > 0.0f) {
+                entropy += p * log2(p);
+            }
+        }
+        if (entropy < m.entropy) {
+            m.first = index;
+            m.entropy = entropy;
+        }
+    }
+    return m.first;
+}
+
+int Optimiser::minimiseEntropySet1Step(std::vector<int>& set, std::vector<int>& options)
+{
+    min m = min({ -1, -1, INFINITY });
+    std::vector<int> workingSet;
+    float reducedP = frequencies.setProbability(set);
+    for (int index: options) {
         std::array<std::vector<int>, 243>* firstGuessSet = indexMatrix.getIndexGuessSetRef(index);
         float entropy = 0.0f;
         for (int colourI = 0; colourI < 243; colourI++) {

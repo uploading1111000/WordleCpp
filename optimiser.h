@@ -15,16 +15,21 @@ public:
 	float entropy1Index(int index);
 
 	std::vector<int> getLowestEntropyWords(std::vector<int>& set, int n);
+	std::vector<int> getLowestEntropyWordsOptimized(std::vector<int>& set, int n);
 	int bruteForceLowestExpectedValue(std::vector<int>& set, int n, int depth);
 
 	int stringIndex(const std::string& word) { return wordlist.getWordIndex(stringToWord(word)); };
 	Word wordIndex(int index) const { return wordlist[index]; };
 
+	void maxWord2Prob();
+
 	void test();
+	void play();
 	std::vector<int> ALL_WORDS() const;
 	std::vector<int> POSSIBLE_WORDS() const;
 	
 	int minimiseEntropySet1Step(std::vector<int>& set);
+	int minimiseEntropySet1Step(std::vector<int>& set, std::vector<int>& options);
 
 	void reverseSearch(std::vector<int> words, std::vector<Colours> data);
 
