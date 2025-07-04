@@ -338,6 +338,16 @@ float Optimiser::entropy1Index(int index)
     return mi;
 }
 
+void Optimiser::sortByEntropy(std::vector<int>& set, std::vector<int>& returnable)
+{
+    Maximiser Max(set.size());
+    for (int i : set) {
+        Max.add(entropy1Index(i), i);
+    }
+    returnable = Max.get_all();
+    std::reverse(returnable.begin(), returnable.end());
+}
+
 std::vector<int> Optimiser::getLowestEntropyWords(std::vector<int>& set, int n)
 {
     Maximiser Max(n);
@@ -397,7 +407,26 @@ int Optimiser::bruteForceLowestExpectedValue(std::vector<int>& set, int n, int d
             m.expectation = expectation;
         }
     }
-    std::cout << wordToString(wordlist[m.index]) << " " << m.expectation << std::endl;
+    //std::cout << wordToString(wordlist[m.index]) << " " << m.expectation << std::endl;
+    return m.index;
+}
+
+int Optimiser::bruteForceSecondGuess(std::vector<int>& set, int n)
+{
+    std::vector<int> wordsToTest;
+    sortByEntropy(set, wordsToTest);
+    struct expMin {
+        int index;
+        float expectation;
+    };
+    expMin m = expMin({ -1, INFINITY });
+    for (int word : wordsToTest) {
+        float expectation = bruteForceRecurseExpectation(set, word, n, 1, m.expectation);
+        if (expectation < m.expectation) {
+            m.index = word;
+            m.expectation = expectation;
+        }
+    }
     return m.index;
 }
 
@@ -453,16 +482,16 @@ float Optimiser::bruteForceRecurseExpectation(std::vector<int>& set, int word, i
             }*/
             E += p * (1 + minExp);
         }
-        if (E >= alpha) {
-            if (depth == 1) {
-                std::cout << testN++ << "\n";
-            }
-            return E;
-        }
+        //if (E >= alpha) {
+            //if (depth == 1) {
+                //std::cout << testN++ << "\n";
+            //}
+            //return E;
+        //}
     }
-    if (depth == 1) {
-        std::cout << testN++ << "\n";
-    }
+    //if (depth == 1) {
+        //std::cout << testN++ << "\n";
+    //}
     return E;
 }
 
@@ -531,7 +560,6 @@ void Optimiser::play()
     int optimum = minimiseEntropySet1Step(newSet, newSet);
     std::cout << wordToString(wordlist[optimum]) << "\n";*/
     std::cout << "trace" << std::endl;
-    std::vector<int> initial = POSSIBLE_WORDS();
     std::string rawInput;
     std::getline(std::cin, rawInput);
     Colours input;
@@ -539,11 +567,10 @@ void Optimiser::play()
         input.set(i, rawInput[i] - '0');
     }
     std::vector<int>* firstSet = reducedMatrix.getIndexSetRef(stringIndex("trace"), input);
-    std::vector<int> newSet;
-    std::set_intersection(initial.begin(), initial.end(), firstSet->begin(), firstSet->end(), std::back_inserter(newSet));
-    initial = newSet;
-    int guess = minimiseEntropySet1Step(initial, initial);
+    std::vector<int> initial = *firstSet;
+    int guess = bruteForceSecondGuess(initial, 50);
     std::cout << wordToString(wordlist[guess]) << std::endl;
+    std::vector<int> newSet;
     while (true) {
         std::getline(std::cin, rawInput);
         for (int i = 0; i < 5; i++) {

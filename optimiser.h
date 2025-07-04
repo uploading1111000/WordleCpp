@@ -14,9 +14,12 @@ public:
 	float Entropy2Word(int first, int second);
 	float entropy1Index(int index);
 
+	void sortByEntropy(std::vector<int>& set, std::vector<int>& returnable);
+
 	std::vector<int> getLowestEntropyWords(std::vector<int>& set, int n);
 	std::vector<int> getLowestEntropyWordsOptimized(std::vector<int>& set, int n);
 	int bruteForceLowestExpectedValue(std::vector<int>& set, int n, int depth);
+	int bruteForceSecondGuess(std::vector<int>& set, int n);
 
 	int stringIndex(const std::string& word) { return wordlist.getWordIndex(stringToWord(word)); };
 	Word wordIndex(int index) const { return wordlist[index]; };
