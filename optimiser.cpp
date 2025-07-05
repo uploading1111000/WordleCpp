@@ -47,6 +47,7 @@ Optimiser::Optimiser(const std::string& WordlistPath, const std::string& Frequen
         ALL_COLOURS[index].set(4, (index / 81) % 3);
     }
     testN = 0;
+    cache.reserve(30000);
 }
 
 struct min {
@@ -421,13 +422,16 @@ int Optimiser::bruteForceSecondGuess(std::vector<int>& set, int n)
         float expectation;
     };
     expMin m = expMin({ -1, INFINITY });
+    int count = 0;
     for (int word : wordsToTest) {
         float expectation = bruteForceRecurseExpectation(set, word, n, 1, m.expectation);
         if (expectation < m.expectation) {
             m.index = word;
             m.expectation = expectation;
         }
+        //std::cout << ++count << "/" << wordsToTest.size() << std::endl;
     }
+    //std::cout << cache.size() << std::endl;
     return m.index;
 }
 
@@ -456,39 +460,50 @@ float Optimiser::bruteForceRecurseExpectation(std::vector<int>& set, int word, i
             E += 1.5f * p;
         }
         else {
-            std::vector<int> EntropyWords = getLowestEntropyWordsOptimized(byColours[I], std::min(n,int(byColours[I].size())));
+            cacheLock.lock_shared();
+            if (cache.contains(byColours[I])) {
+                E += p * (1 + cache.at(byColours[I]));
+                cacheLock.unlock_shared();
+            }
+            else {
+                cacheLock.unlock_shared();
+                std::vector<int> EntropyWords = getLowestEntropyWordsOptimized(byColours[I], std::min(n, int(byColours[I].size())*2));
 
-            float minExp = INFINITY;
-            if (byColours[I].size() <= 9) { //very small sets then it makes sense to go for gold before checking for information
-                for (int newWord : byColours[I]) {
+                float minExp = INFINITY;
+                if (byColours[I].size() <= 9) { //very small sets then it makes sense to go for gold before checking for information
+                    for (int newWord : byColours[I]) {
+                        float expectation = bruteForceRecurseExpectation(byColours[I], newWord, n, depth + 1, minExp);
+                        if (expectation < minExp) {
+                            minExp = expectation;
+                        }
+                    }
+                }
+                for (int newWord : EntropyWords) {
                     float expectation = bruteForceRecurseExpectation(byColours[I], newWord, n, depth + 1, minExp);
                     if (expectation < minExp) {
                         minExp = expectation;
                     }
                 }
-            }
-            for (int newWord : EntropyWords) {
-                float expectation = bruteForceRecurseExpectation(byColours[I], newWord, n, depth + 1, minExp);
-                if (expectation < minExp) {
-                    minExp = expectation;
-                }
-            }
-            /*if (byColours[I].size() > 9 and byColours[I].size() <= 33) { //small sets it makes sense to check if theres any impact by guessing, but do it after the (in most cases better) information plays
-                for (int newWord : byColours[I]) {
-                    float expectation = bruteForceRecurseExpectation(byColours[I], newWord, n, depth + 1, minExp);
-                    if (expectation < minExp) {
-                        minExp = expectation;
+                if (byColours[I].size() > 9 and byColours[I].size() <= 33) { //small sets it makes sense to check if theres any impact by guessing, but do it after the (in most cases better) information plays
+                    for (int newWord : byColours[I]) {
+                        float expectation = bruteForceRecurseExpectation(byColours[I], newWord, n, depth + 1, minExp);
+                        if (expectation < minExp) {
+                            minExp = expectation;
+                        }
                     }
                 }
-            }*/
-            E += p * (1 + minExp);
+                cacheLock.lock();
+                cache[byColours[I]] = minExp;
+                cacheLock.unlock();
+                E += p * (1 + minExp);
+            }
         }
-        //if (E >= alpha) {
+        if (E >= alpha) {
             //if (depth == 1) {
                 //std::cout << testN++ << "\n";
             //}
-            //return E;
-        //}
+            return E;
+        }
     }
     //if (depth == 1) {
         //std::cout << testN++ << "\n";
@@ -500,7 +515,7 @@ void Optimiser::maxWord2Prob()
 {
     //P(getting it on 2) = sum(P(colour) * P(getting it on 2 | colour)) over colours  with P(colour) > 0
     // =sum((Number of words with colour / Total words) * (1 / Number of words with colour))
-    // =sum(1/Number of words with colour) i.e. const, maximised by finding word that produces as many colours with P > 0
+    // =sum(1/Total words) i.e. const, maximised by finding word that produces as many colours with P > 0 to maximise the number of sums
     Maximiser Max(10);
     std::vector<int> POSSIBLE = POSSIBLE_WORDS();
     std::vector<int> scores;
@@ -574,6 +589,7 @@ void Optimiser::play()
     std::vector<int>* firstSet = reducedMatrix.getIndexSetRef(stringIndex("trace"), input);
     std::vector<int> initial = *firstSet;
     int guess = bestGuesses[input.asInd()];
+    //int guess = bruteForceSecondGuess(initial, 100, cache);
     std::cout << wordToString(wordlist[guess]) << std::endl;
     std::vector<int> newSet;
     while (true) {
@@ -603,24 +619,28 @@ void Optimiser::precompute()
 {
     std::array<std::vector<int>,243> guessSet = *reducedMatrix.getIndexGuessSetRef(stringIndex("trace"));
     std::array<int, 243> bestGuesses;
-    const int numThreads = std::thread::hardware_concurrency() - 1;
+    const int numThreads = std::thread::hardware_concurrency();
     std::vector<std::thread> threads;
     std::atomic<int> nextIndex{0};
     std::atomic<int> completed{0};
+    std::mutex displayMutex;
     
     auto worker = [&]() {
-        int i;
+        int i = 0;
         while ((i = nextIndex++) < 243) {
             std::vector<int> initial = guessSet[i];
             if (initial.size() == 0) {
                 bestGuesses[i] = -1;
             }
             else {
-                bestGuesses[i] = bruteForceSecondGuess(initial, 50);
+                bestGuesses[i] = bruteForceSecondGuess(initial, 200);
             }
-            int current = ++completed;
-            std::cout << "Progress: " << current << "/243 (" 
-                         << (current * 100 / 243) << "%)" << std::endl;
+            {
+                std::lock_guard<std::mutex> lock(displayMutex);
+                int current = ++completed;
+                std::cout << "Progress: " << current << "/243 ("
+                    << (current * 100 / 243) << "%)" << std::endl;
+            }
         }
     };
     

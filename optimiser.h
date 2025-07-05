@@ -2,6 +2,25 @@
 #include "frequencies.h"
 #include "matrices.h"
 #include "utils.h"
+#include <unordered_map>
+#include <shared_mutex>
+
+struct StateHasher
+{
+	std::size_t operator()(const std::vector<int>& key) const
+	{
+		std::size_t hash = 0;
+		long word;
+		for (int i = 0; i < key.size(); i++)
+		{
+			word = key[i];
+			word <<= ((i % 4) * 14);
+			hash ^= word;
+		}
+		hash |= key.size() << 4 * 14;
+		return hash;
+	}
+};
 
 class Optimiser
 {
@@ -40,11 +59,15 @@ public:
 
 private:
 	float bruteForceRecurseExpectation(std::vector<int>& set, int word, int n, int depth, float alpha);
+
 	Wordlist wordlist;
 	ColourMatrix colourMatrix;
 	IndexMatrix indexMatrix;
 	Frequencies frequencies;
 	ReducedMatrix reducedMatrix;
+	std::unordered_map<std::vector<int>, float, StateHasher> cache;
+
+	std::shared_mutex cacheLock;
 
 	std::array<Colours, 243> ALL_COLOURS;
 	int testN;
