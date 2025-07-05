@@ -28,6 +28,8 @@ public:
 
 	void test();
 	void play();
+	void precompute();
+
 	std::vector<int> ALL_WORDS() const;
 	std::vector<int> POSSIBLE_WORDS() const;
 	

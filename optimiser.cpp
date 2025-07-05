@@ -9,6 +9,7 @@
 #include <atomic>
 #include <numeric>
 #include "maximiser.h"
+#include <fstream>
 
 
 Optimiser::Optimiser(const std::string& WordlistPath, const std::string& FrequenciesPath)
@@ -559,6 +560,9 @@ void Optimiser::play()
     std::set_intersection(initial.begin(), initial.end(), set.begin(), set.end(), std::back_inserter(newSet));
     int optimum = minimiseEntropySet1Step(newSet, newSet);
     std::cout << wordToString(wordlist[optimum]) << "\n";*/
+    std::ifstream infile("second_guesses.bin", std::ios::binary);
+    std::array<int, 243> bestGuesses;
+    infile.read(reinterpret_cast<char*>(&bestGuesses), sizeof(bestGuesses));
     std::cout << "trace" << std::endl;
     std::string rawInput;
     std::getline(std::cin, rawInput);
@@ -568,7 +572,7 @@ void Optimiser::play()
     }
     std::vector<int>* firstSet = reducedMatrix.getIndexSetRef(stringIndex("trace"), input);
     std::vector<int> initial = *firstSet;
-    int guess = bruteForceSecondGuess(initial, 50);
+    int guess = bestGuesses[input.asInd()];
     std::cout << wordToString(wordlist[guess]) << std::endl;
     std::vector<int> newSet;
     while (true) {
@@ -592,6 +596,19 @@ void Optimiser::play()
         std::cout << wordToString(wordlist[guess]) << std::endl;
 
     }
+}
+
+void Optimiser::precompute()
+{
+    std::array<std::vector<int>,243> guessSet = *reducedMatrix.getIndexGuessSetRef(stringIndex("trace"));
+    std::array<int, 243> bestGuesses;
+    for (int i = 0; i < 243; i++) {
+        std::vector<int> initial = guessSet[i];
+        bestGuesses[i] = bruteForceSecondGuess(initial, 50);
+    }
+    std::ofstream outfile("second_guesses.bin", std::ios::binary);
+    outfile.write(reinterpret_cast<const char*>(&bestGuesses), sizeof(bestGuesses));
+    outfile.close();
 }
 
 std::vector<int> Optimiser::ALL_WORDS() const
