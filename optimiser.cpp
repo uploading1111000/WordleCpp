@@ -563,6 +563,7 @@ void Optimiser::play()
     std::ifstream infile("second_guesses.bin", std::ios::binary);
     std::array<int, 243> bestGuesses;
     infile.read(reinterpret_cast<char*>(&bestGuesses), sizeof(bestGuesses));
+    infile.close();
     std::cout << "trace" << std::endl;
     std::string rawInput;
     std::getline(std::cin, rawInput);
@@ -602,9 +603,33 @@ void Optimiser::precompute()
 {
     std::array<std::vector<int>,243> guessSet = *reducedMatrix.getIndexGuessSetRef(stringIndex("trace"));
     std::array<int, 243> bestGuesses;
-    for (int i = 0; i < 243; i++) {
-        std::vector<int> initial = guessSet[i];
-        bestGuesses[i] = bruteForceSecondGuess(initial, 50);
+    const int numThreads = std::thread::hardware_concurrency() - 1;
+    std::vector<std::thread> threads;
+    std::atomic<int> nextIndex{0};
+    std::atomic<int> completed{0};
+    
+    auto worker = [&]() {
+        int i;
+        while ((i = nextIndex++) < 243) {
+            std::vector<int> initial = guessSet[i];
+            if (initial.size() == 0) {
+                bestGuesses[i] = -1;
+            }
+            else {
+                bestGuesses[i] = bruteForceSecondGuess(initial, 50);
+            }
+            int current = ++completed;
+            std::cout << "Progress: " << current << "/243 (" 
+                         << (current * 100 / 243) << "%)" << std::endl;
+        }
+    };
+    
+    for (int t = 0; t < numThreads; t++) {
+        threads.emplace_back(worker);
+    }
+    
+    for (auto& thread : threads) {
+        thread.join();
     }
     std::ofstream outfile("second_guesses.bin", std::ios::binary);
     outfile.write(reinterpret_cast<const char*>(&bestGuesses), sizeof(bestGuesses));

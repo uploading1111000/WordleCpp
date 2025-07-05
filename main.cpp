@@ -30,6 +30,7 @@ int main() {
 
 	//int wordOptimum = optimiser.bruteForceLowestExpectedValue(POSSIBLE_WORDS, 8, 0);
 	//std::cout << wordOptimum << std::endl;
+	//optimiser.precompute();
 	while (true) {
 		optimiser.play();
 	}
