@@ -3,7 +3,7 @@
 #include <thread>
 
 int main() {
-	Optimiser optimiser("allowed_words.txt","cheatlist.bin");
+	Optimiser optimiser("allowed_words.txt","new_cheatlist.bin");
 	//optimiser.test();
 	//optimiser.maximiseEntropy2WordValidMultiThreaded();
 	//optimiser.maximiseEntropy2WordMultiThreaded();
@@ -30,6 +30,8 @@ int main() {
 
 	//int wordOptimum = optimiser.bruteForceLowestExpectedValue(POSSIBLE_WORDS, 8, 0);
 	//std::cout << wordOptimum << std::endl;
+	//optimiser.maxWord2Prob();
+
 	//optimiser.precompute();
 	while (true) {
 		optimiser.play();

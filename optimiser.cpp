@@ -437,9 +437,6 @@ int Optimiser::bruteForceSecondGuess(std::vector<int>& set, int n)
 
 float Optimiser::bruteForceRecurseExpectation(std::vector<int>& set, int word, int n, int depth, float alpha)
 {
-    if (depth == 6) {
-        return INFINITY;
-    }
     float totalProb = set.size();
     float E = 0.0f;
     std::array<std::vector<int>, 243> byColours;
@@ -537,23 +534,16 @@ void Optimiser::maxWord2Prob()
     }
     std::cout << scores[stringIndex("pesto")] << "\n";
     std::cout << scores[stringIndex("super")] << "\n";
+    std::cout << scores[stringIndex("trace")] << "\n";
 }
 
 void Optimiser::test()
 {
-    std::vector<int> setA;
-    setA = *reducedMatrix.getIndexSetRef(stringIndex("trice"), Colours({0,1,0,0,2}));
-    std::vector<int> setB;
-    setB = *reducedMatrix.getIndexSetRef(stringIndex("sargo"), Colours({ 1,0,1,0,0 }));
-    std::vector<int> workingSet;
-    std::set_intersection(setA.begin(), setA.end(), setB.begin(), setB.end(), std::back_inserter(workingSet));
-    std::cout << "Valid:" << std::endl;
-    for (int C : workingSet) {
-        std::cout << wordToString(wordlist[C]) << "\n";
+    for (int word : ALL_WORDS()) {
+        if (colourMatrix.getColour(stringIndex("brand"), word).asInt() == Colours({ 0,2,2,2,0 }).asInt()) {
+            std::cout << wordToString(wordlist[word]) << "\n";
+        }
     }
-    std::cout << "Optimal:" << std::endl;
-    int optimal = minimiseEntropySet1Step(workingSet);
-    std::cout << wordToString(wordlist[optimal]) << "\n";
 }
 
 void Optimiser::play()
@@ -579,14 +569,14 @@ void Optimiser::play()
     std::array<int, 243> bestGuesses;
     infile.read(reinterpret_cast<char*>(&bestGuesses), sizeof(bestGuesses));
     infile.close();
-    std::cout << "trace" << std::endl;
+    std::cout << "tares" << std::endl;
     std::string rawInput;
     std::getline(std::cin, rawInput);
     Colours input;
     for (int i = 0; i < 5; i++) {
         input.set(i, rawInput[i] - '0');
     }
-    std::vector<int>* firstSet = reducedMatrix.getIndexSetRef(stringIndex("trace"), input);
+    std::vector<int>* firstSet = reducedMatrix.getIndexSetRef(stringIndex("tares"), input);
     std::vector<int> initial = *firstSet;
     int guess = bestGuesses[input.asInd()];
     //int guess = bruteForceSecondGuess(initial, 100, cache);
@@ -617,7 +607,7 @@ void Optimiser::play()
 
 void Optimiser::precompute()
 {
-    std::array<std::vector<int>,243> guessSet = *reducedMatrix.getIndexGuessSetRef(stringIndex("trace"));
+    std::array<std::vector<int>,243> guessSet = *reducedMatrix.getIndexGuessSetRef(stringIndex("tares"));
     std::array<int, 243> bestGuesses;
     const int numThreads = std::thread::hardware_concurrency();
     std::vector<std::thread> threads;
